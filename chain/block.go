@@ -31,3 +31,16 @@ func CreateBlock(height int64, prevHash [32]byte, data []byte) Block {
 
 	return block
 }
+
+/**
+ * 封装用于生成创世区块的函数, 该函数只生成创世区块
+ */
+func CreateGenesisBlock(data []byte) Block {
+	genesis := Block{}
+	genesis.Height = 0
+	genesis.PreHash = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	genesis.Version = VERSION
+	genesis.Timestamp = time.Now().Unix()
+	genesis.Data = data
+	return genesis
+}

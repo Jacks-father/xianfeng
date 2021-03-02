@@ -11,7 +11,6 @@ import (
 func main() {
 	fmt.Println("hello world")
 
-	block := chain.CreateBlock(0, [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, nil)
-
-	fmt.Println("新区块：",block)
+	gensis := chain.CreateGenesisBlock([]byte("hello world"))
+	fmt.Println("新区块：", gensis)
 }
