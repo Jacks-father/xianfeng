@@ -1,12 +1,11 @@
-package pos
+package consensus
 
 import (
-	"XianfengChain03/chain"
 	"fmt"
 )
 
 type ProofStock struct {
-	Block chain.Block
+	Block BlockInterface
 }
 
 func (stock ProofStock) SearchNonce()([32]byte,int64){

@@ -17,5 +17,4 @@ func main() {
 	fmt.Println("区块1：",block1)
 	block2 := chain.CreateBlock(block1.Height,block1.Hash,nil)
 	fmt.Println("区块2:",block2)
-
 }

@@ -54,7 +54,6 @@ func CreateBlock(height int64, prevHash [32]byte, data []byte) Block {
 	hash, nonce := proof.SearchNonce()
 	block.Nonce = nonce
 
-
 	block.Hash = hash
 
 	return block
@@ -77,4 +76,30 @@ func CreateGenesisBlock(data []byte) Block {
 	genesis.Nonce = nonce
 
 	return genesis
+}
+
+/**
+ * 该方法是实现BlockInterface的GetHeight方法
+ */
+func (block Block) GetHeight() int64 {
+	return block.Height
+}
+
+/**
+ * 该方法是实现BlockInterface的GetVersion方法
+ */
+func (block Block) GetVersion() int64 {
+	return block.Version
+}
+
+func (block Block) GetTimeStamp() int64 {
+	return block.Timestamp
+}
+
+func (block Block) GetPreHash() [32]byte {
+	return block.PreHash
+}
+
+func (block Block) GetData() []byte {
+	return block.Data
 }
