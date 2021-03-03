@@ -11,10 +11,13 @@ import (
 func main() {
 	fmt.Println("hello world")
 
-	gensis := chain.CreateGenesisBlock([]byte("hello world"))
-	fmt.Println("区块0：", gensis)
-	block1 := chain.CreateBlock(gensis.Height,gensis.Hash,nil)
-	fmt.Println("区块1：",block1)
-	block2 := chain.CreateBlock(block1.Height,block1.Hash,nil)
-	fmt.Println("区块2:",block2)
+	blockchain := chain.CreateChainWithGenesis([]byte("Hello World"))
+
+	blockchain.AddNewBlock([]byte("block1"))
+	blockchain.AddNewBlock([]byte("block2"))
+	fmt.Println("当前共有区块个数：",len(blockchain.Blocks))
+	fmt.Println(blockchain.Blocks[0])
+	fmt.Println(blockchain.Blocks[1])
+	fmt.Println(blockchain.Blocks[2])
+
 }
