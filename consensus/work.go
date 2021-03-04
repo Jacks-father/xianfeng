@@ -13,7 +13,7 @@ import (
 
 //000000010000000....000
 
-const DIFFICULTY = 10 //初始难度为10，即大整数的开头有10个零
+const DIFFICULTY = 16 //初始难度为10，即大整数的开头有10个零
 
 /**
  * 工作量证明
@@ -33,12 +33,18 @@ func (work ProofWork) SearchNonce() ([32]byte, int64) {
 	//1 给定一个non值，计算带有non的区块哈希
 	var nonce int64
 	nonce = 0
+	hashBig := new(big.Int)
 	for {
 		hash := CalculateBlockHash(work.Block, nonce)
 		//2 系统给定的值
 		target := work.Target
 		//3 拿1和2比较
-		result := bytes.Compare(hash[:], target.Bytes())
+		//hash [32]byte
+		//target big.Int
+
+		//result := bytes.Compare(hash[:], target.Bytes())
+		hashBig = hashBig.SetBytes(hash[:])
+		result := hashBig.Cmp(target)
 		//4 判断结果，区块哈希<给定值，返回non;
 		if result == -1 {
 			return hash, nonce
