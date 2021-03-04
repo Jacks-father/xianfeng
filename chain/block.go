@@ -3,6 +3,8 @@ package chain
 import (
 	"time"
 	"XianfengChain03/consensus"
+	"encoding/gob"
+	"bytes"
 )
 
 const VERSION = 0x00
@@ -34,6 +36,26 @@ func (block *Block) SetHash() {
 	block.Hash = hash
 }
 */
+
+/**
+ * 区块的序列化，序列化为[]byte数据类型
+ */
+func (block *Block) Serialize() ([]byte, error) {
+	buff := new(bytes.Buffer)
+	encoder := gob.NewEncoder(buff)
+	err := encoder.Encode(&block)
+	return buff.Bytes(), err
+}
+
+/**
+ * 区块的反序列化操作,传入[]byte,返回Block结构体或者error
+ */
+func Deserialize(data []byte) (Block, error) {
+	var block Block
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+	err := decoder.Decode(&block)
+	return block, err
+}
 
 /**
  * 创建一个新的区块的函数
