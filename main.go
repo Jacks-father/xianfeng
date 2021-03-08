@@ -3,30 +3,48 @@ package main
 import (
 	"fmt"
 	"XianfengChain03/chain"
+	"github.com/boltdb/bolt"
 )
+
+const DBFILE = "xianfeng03.db"
 
 /**
  * 项目的主入口
  */
 func main() {
+
 	fmt.Println("hello world")
 
-	blockchain := chain.CreateChainWithGenesis([]byte("Hello World"))
-
-	blockchain.AddNewBlock([]byte("block1"))
-	blockchain.AddNewBlock([]byte("block2"))
-	fmt.Println("当前共有区块个数：", len(blockchain.Blocks))
-	block0 := blockchain.Blocks[0]
-	block0SerBytes, err := block0.Serialize()
+	engine, err := bolt.Open(DBFILE, 0600, nil)
 	if err != nil {
-		fmt.Println("序列化区块0出现错误")
+		panic(err.Error())
+	}
+
+	blockChain := chain.NewBlockChain(engine)
+	//创世区块
+	blockChain.CreateGenesis([]byte("hello world"))
+	//新增一个区块
+	err = blockChain.AddNewBlock([]byte("hello"))
+	if err != nil {
+		fmt.Println(err.Error())
 		return
 	}
 
-	deBlock0, err := chain.Deserialize(block0SerBytes)
+	//获取最新区块
+	//lastBlock, err := blockChain.GetLastBlock()
+	//if err != nil {
+	//	fmt.Println(err.Error())
+	//	return
+	//}
+	//fmt.Println(lastBlock)
+
+	allBlocks, err := blockChain.GetAllBlocks()
 	if err != nil {
-		fmt.Println("反序列化区块0出现错误，程序已停止。",err.Error())
+		fmt.Println(err.Error())
 		return
 	}
-	fmt.Println(string(deBlock0.Data))
+	for _, block := range allBlocks{
+		fmt.Println(block)
+	}
+
 }
