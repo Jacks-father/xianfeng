@@ -13,11 +13,12 @@ const LASTHASH = "lastHash"
  */
 type BlockChain struct {
 	//Blocks []Block
-	Engine *bolt.DB
+	Engine    *bolt.DB
+	LastBlock Block
 }
 
 func NewBlockChain(db *bolt.DB) BlockChain {
-	return BlockChain{db}
+	return BlockChain{Engine: db}
 }
 
 /**
@@ -40,9 +41,13 @@ func (chain *BlockChain) CreateGenesis(genesisData []byte) {
 				bucket.Put(genesis.Hash[:], genSerBytes)
 				//更新最新区块的标志 lastHash -> 最新区块hash
 				bucket.Put([]byte(LASTHASH), genesis.Hash[:])
+			} else {
+				//创世区块已经存在了，不需要再写入了,读取最新区块的数据
+				lastHash := bucket.Get([]byte(LASTHASH))
+				lastBlockBytes := bucket.Get(lastHash)
+				lastBlock, _ := Deserialize(lastBlockBytes)
+				chain.LastBlock = lastBlock
 			}
-			//创世区块已经存在了，不需要再写入了
-
 		}
 		return nil
 	})
@@ -54,24 +59,8 @@ func (chain *BlockChain) CreateGenesis(genesisData []byte) {
 func (chain *BlockChain) AddNewBlock(data []byte) error {
 	//1、从db中找到最后一个区块数据
 	engine := chain.Engine
-	var lastBlock Block
-	var err error
-	engine.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(BLOCKS))
-		if bucket == nil {
-			err = errors.New("区块链数据库操作失败，请重试!")
-			return err
-		}
-		lastHash := bucket.Get([]byte(LASTHASH))
-		lastBlockData := bucket.Get(lastHash)
-		//2、拿到最后一个区块的数据，进行反序列化，得到最后一个区块结构体
-		lastBlock, err = Deserialize(lastBlockData)
-		if err != nil {
-			err = errors.New("反序列化区块发生错误, 请重试!")
-			return err
-		}
-		return nil
-	})
+	//2、获取到最新的区块
+	lastBlock := chain.LastBlock
 
 	//3、得到最后一个区块的各种属性，并利用这些属性生成新区块
 	newBlock := CreateBlock(lastBlock.Height, lastBlock.Hash, data)
@@ -90,6 +79,9 @@ func (chain *BlockChain) AddNewBlock(data []byte) error {
 		bucket.Put(newBlock.Hash[:], newBlockByte)
 		//更新最新区块的指向标记
 		bucket.Put([]byte(LASTHASH), newBlock.Hash[:])
+
+		//更新blockChain对象的LastBlock结构体实例
+		chain.LastBlock = newBlock
 		return nil
 	})
 	return err
@@ -98,27 +90,8 @@ func (chain *BlockChain) AddNewBlock(data []byte) error {
 /**
  * 获取最新的最后的一个区块
  */
-func (chain BlockChain) GetLastBlock() (Block, error) {
-	engine := chain.Engine
-	var err error
-	var lastBlock Block
-	engine.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(BLOCKS))
-		if bucket == nil {
-			err = errors.New("区块数据库操作失败,请重试!")
-			return err
-		}
-		//获取最后的区块的hash
-		lastHash := bucket.Get([]byte(LASTHASH))
-		//根据最后的区块的hash获取最后的区块
-		lastBlockBytes := bucket.Get(lastHash)
-		lastBlock, err = Deserialize(lastBlockBytes)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	return lastBlock, err
+func (chain *BlockChain) GetLastBlock() (Block) {
+	return chain.LastBlock
 }
 
 /**
@@ -134,10 +107,11 @@ func (chain BlockChain) GetAllBlocks() ([]Block, error) {
 			errs = errors.New("区块数据库操作是吧，请重试！")
 			return errs
 		}
-		//首先把最新区块取出来
-		lastHash := bucket.Get([]byte(LASTHASH))
+		//将最后的最新的区块存储到[]Block中
+		blocks = append(blocks,chain.LastBlock)
 		var currentHash []byte
-		currentHash = lastHash
+		//直接从倒数第二个区块进行遍历
+		currentHash = chain.LastBlock.PreHash[:]
 		for {
 			//根据区块hash拿[]byte类型的区块数据
 			currentBlockBytes := bucket.Get(currentHash)
@@ -149,7 +123,7 @@ func (chain BlockChain) GetAllBlocks() ([]Block, error) {
 			}
 			blocks = append(blocks, currentBlock)
 			//终止循环的逻辑
-			if currentBlock.Height == 0{
+			if currentBlock.Height == 0 {
 				break
 			}
 			currentHash = currentBlock.PreHash[:]
