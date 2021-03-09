@@ -3,6 +3,7 @@ package chain
 import (
 	"github.com/boltdb/bolt"
 	"errors"
+	"math/big"
 )
 
 const BLOCKS = "blocks"
@@ -13,8 +14,9 @@ const LASTHASH = "lastHash"
  */
 type BlockChain struct {
 	//Blocks []Block
-	Engine    *bolt.DB
-	LastBlock Block
+	Engine            *bolt.DB
+	LastBlock         Block    //最新的区块
+	IteratorBlockHash [32]byte //迭代到的区块哈希值
 }
 
 func NewBlockChain(db *bolt.DB) BlockChain {
@@ -42,12 +44,14 @@ func (chain *BlockChain) CreateGenesis(genesisData []byte) {
 				//更新最新区块的标志 lastHash -> 最新区块hash
 				bucket.Put([]byte(LASTHASH), genesis.Hash[:])
 				chain.LastBlock = genesis
+				chain.IteratorBlockHash = genesis.Hash
 			} else {
 				//创世区块已经存在了，不需要再写入了,读取最新区块的数据
 				lastHash := bucket.Get([]byte(LASTHASH))
 				lastBlockBytes := bucket.Get(lastHash)
 				lastBlock, _ := Deserialize(lastBlockBytes)
 				chain.LastBlock = lastBlock
+				chain.IteratorBlockHash = lastBlock.Hash
 			}
 		}
 		return nil
@@ -83,6 +87,7 @@ func (chain *BlockChain) AddNewBlock(data []byte) error {
 
 		//更新blockChain对象的LastBlock结构体实例
 		chain.LastBlock = newBlock
+		chain.IteratorBlockHash = newBlock.Hash
 		return nil
 	})
 	return err
@@ -132,4 +137,56 @@ func (chain BlockChain) GetAllBlocks() ([]Block, error) {
 		return nil
 	})
 	return blocks, errs
+}
+
+/**
+ * 该方法用于实现ChainIterator迭代器接口的方法，用于判断是否还有区块
+ */
+func (chain *BlockChain) HasNext() bool {
+	//是否还有前一个区块
+	//思路：先知道当前在哪个区块，根据当前的区块去判断是否还有下一个区块
+	engine := chain.Engine
+	var hasNext bool
+	engine.View(func(tx *bolt.Tx) error {
+		currentBlockHash := chain.IteratorBlockHash
+		bucket := tx.Bucket([]byte(BLOCKS))
+		if bucket == nil {
+			return errors.New("区块数据文件操作失败,请重试")
+		}
+		currentBlockBytes := bucket.Get(currentBlockHash[:])
+		currentBlock, err := Deserialize(currentBlockBytes)
+		if err != nil {
+			return err
+		}
+
+		hashBig := big.NewInt(0)
+		hashBig = hashBig.SetBytes(currentBlock.Hash[:])
+		if hashBig.Cmp(big.NewInt(0)) == 1 {//区块hash有值
+			hasNext = true
+		}else {
+			hasNext = false
+		}
+
+		return nil
+	})
+	return hasNext
+}
+
+/**
+ * 该方法用于实现ChainIterator迭代器接口的方法，用于取出下一个区块
+ */
+func (chain *BlockChain) Next() Block {
+	engine := chain.Engine
+	var currentBlock Block
+	engine.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(BLOCKS))
+		if bucket == nil {
+			return errors.New("区块数据文件操作失败,请重试！")
+		}
+		currentBlockBytes := bucket.Get(chain.IteratorBlockHash[:])
+		currentBlock, _ = Deserialize(currentBlockBytes)
+		chain.IteratorBlockHash = currentBlock.PreHash //赋值iteratorBlock，
+		return nil
+	})
+	return currentBlock
 }
