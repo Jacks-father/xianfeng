@@ -13,8 +13,6 @@ const DBFILE = "xianfeng03.db"
  */
 func main() {
 
-	fmt.Println("hello world")
-
 	engine, err := bolt.Open(DBFILE, 0600, nil)
 	if err != nil {
 		panic(err.Error())
@@ -26,7 +24,7 @@ func main() {
 	//新增一个区块
 	err = blockChain.AddNewBlock([]byte("hello"))
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("错误信息1：", err.Error())
 		return
 	}
 
@@ -40,11 +38,10 @@ func main() {
 
 	allBlocks, err := blockChain.GetAllBlocks()
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("错误信息2：",err.Error())
 		return
 	}
-	for _, block := range allBlocks{
+	for _, block := range allBlocks {
 		fmt.Println(block)
 	}
-
 }

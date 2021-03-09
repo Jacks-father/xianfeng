@@ -24,6 +24,5 @@ func (engine DBEngine) GetBlockFromDB(hash [32]byte) chain.Block {
 	// hash -> 序列化后的[]byte
 	fmt.Println("该方法中从db中获取特定的区块")
 
-
 }
 

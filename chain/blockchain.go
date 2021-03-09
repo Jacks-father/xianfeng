@@ -41,6 +41,7 @@ func (chain *BlockChain) CreateGenesis(genesisData []byte) {
 				bucket.Put(genesis.Hash[:], genSerBytes)
 				//更新最新区块的标志 lastHash -> 最新区块hash
 				bucket.Put([]byte(LASTHASH), genesis.Hash[:])
+				chain.LastBlock = genesis
 			} else {
 				//创世区块已经存在了，不需要再写入了,读取最新区块的数据
 				lastHash := bucket.Get([]byte(LASTHASH))
@@ -107,12 +108,11 @@ func (chain BlockChain) GetAllBlocks() ([]Block, error) {
 			errs = errors.New("区块数据库操作是吧，请重试！")
 			return errs
 		}
-		//将最后的最新的区块存储到[]Block中
-		blocks = append(blocks,chain.LastBlock)
+
 		var currentHash []byte
 		//直接从倒数第二个区块进行遍历
-		currentHash = chain.LastBlock.PreHash[:]
-		for {
+		currentHash = bucket.Get([]byte(LASTHASH))
+		for { //倒数第一个区块区块开始遍历
 			//根据区块hash拿[]byte类型的区块数据
 			currentBlockBytes := bucket.Get(currentHash)
 			//[]byte类型的区块数据 反序列化为  struct类型
@@ -126,6 +126,7 @@ func (chain BlockChain) GetAllBlocks() ([]Block, error) {
 			if currentBlock.Height == 0 {
 				break
 			}
+			//创世区块的hash值
 			currentHash = currentBlock.PreHash[:]
 		}
 		return nil
