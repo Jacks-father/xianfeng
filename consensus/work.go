@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"fmt"
 	"XianfengChain03/utils"
 	"bytes"
 	"crypto/sha256"
@@ -27,7 +26,6 @@ type ProofWork struct {
  * 实现共识机制接口的方法
  */
 func (work ProofWork) SearchNonce() ([32]byte, int64) {
-	fmt.Println("这里是PoW的方法的代码实现过程")
 	//block -> nonce
 	// block哈希 < 系统提供的某个目标值
 	//1 给定一个non值，计算带有non的区块哈希

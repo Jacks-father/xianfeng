@@ -4,7 +4,7 @@ const (
 	CREATECHAIN     = "createchain"
 	GENERATEGENESIS = "generategensis"
 	ADDNEWBLOCK     = "addnewblock"
-	GETLATBLOCK     = "getlastblock"
+	GETLASTBLOCK     = "getlastblock"
 	GETALLBLOCKS    = "getallblocks"
 	GETBLOCKCOUNT   = "getblockcount"
 	HELP            = "help"

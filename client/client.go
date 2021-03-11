@@ -48,13 +48,65 @@ func (client *Client) Run() {
 		client.Chain.CreateGenesis([]byte(*gensis))
 		fmt.Println("恭喜，创世区块创建并成功写入数据")
 	case ADDNEWBLOCK:
-		fmt.Println("调用生成新区块的功能")
-	case GETLATBLOCK:
-		fmt.Println("获取最新区块的功能")
+		addBlock := flag.NewFlagSet(ADDNEWBLOCK, flag.ExitOnError)
+		data := addBlock.String("data", "", "区块存储的自定义内容")
+		addBlock.Parse(os.Args[2:])
+
+		//args := os.Args[2:]
+		//1、从参数中取出所有以-开头的参数项
+		//2、准备一个当前命令支持的所有参数的切片
+		//系统预定义的： [-data]
+		//用户输入的：  [-data -abcd]
+
+		err := client.Chain.AddNewBlock([]byte(*data))
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		fmt.Println("恭喜，已成功创建新区块，并存储到文件中")
+	case GETLASTBLOCK:
+		set := os.Args[2:]
+		if len(set) > 0 {
+			fmt.Println("兄弟，你会错意了。getlastblock命令不是这么用的.")
+			return
+		}
+
+		last := client.Chain.GetLastBlock()
+		hashBig := new(big.Int)
+		hashBig.SetBytes(last.Hash[:])
+		if hashBig.Cmp(big.NewInt(0)) > 0 {
+			fmt.Println("查询到最新区块")
+			fmt.Println("最新区块高度:", last.Height)
+			fmt.Println("最新区块的内容:", string(last.Data))
+			fmt.Printf("最新区块哈希:%x\n", last.Hash)
+			fmt.Printf("前一个区块哈希:%x\n", last.PreHash)
+			return
+		}
+		fmt.Println("抱歉，当前暂无最新区块")
+		fmt.Println("请使用go run main.go generategensis生成创世区块")
 	case GETALLBLOCKS:
-		fmt.Println("获取所有区块的功能")
+		if len(os.Args[2:]) > 0 {
+			fmt.Println("抱歉，getallblocks不接收参数")
+			return
+		}
+
+		allBlocks, err := client.Chain.GetAllBlocks()
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		fmt.Println("成功获取到所有区块")
+		for _, block := range allBlocks {
+			fmt.Printf("区块%d,Hash:%x,数据:%s\n", block.Height, block.Hash, block.Data)
+		}
 	case GETBLOCKCOUNT:
-		fmt.Println("获取区块的数量")
+		blocks, err := client.Chain.GetAllBlocks()
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		fmt.Printf("查询成功,当前共有%d个区块\n", len(blocks))
 	case HELP:
 		client.Help()
 	default:
