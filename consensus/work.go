@@ -12,7 +12,7 @@ import (
 
 //000000010000000....000
 
-const DIFFICULTY = 20 //初始难度为10，即大整数的开头有10个零
+const DIFFICULTY = 16 //初始难度为10，即大整数的开头有10个零
 
 /**
  * 工作量证明
@@ -61,12 +61,27 @@ func CalculateBlockHash(block BlockInterface, nonce int64) [32]byte {
 	timeByte, _ := utils.Int2Byte(block.GetTimeStamp())
 	nonceByte, _ := utils.Int2Byte(nonce)
 	preHash := block.GetPreHash()
+	txs := block.GetTxs()
+	//Transaction -> []byte 序列化
+	//gob -> 区块的序列化
+	txsBytes := make([]byte, 0)
+	for _, tx := range txs {
+		txBytes, err := utils.GobEncode(tx)
+		if err != nil {
+			break
+		}
+		//buff.Bytes()//每一个交易的序列化数据
+		txsBytes = append(txsBytes, txBytes...)
+	}
+
+	//bytes.Join
 	bk := bytes.Join([][]byte{heightByte,
 		versionByte,
 		preHash[:],
 		timeByte,
 		nonceByte,
-		block.GetData()},
+		txsBytes,
+	},
 		[]byte{})
 	return sha256.Sum256(bk)
 }

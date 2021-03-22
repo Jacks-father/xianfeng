@@ -4,6 +4,8 @@ import (
 	"github.com/boltdb/bolt"
 	"errors"
 	"math/big"
+	"XianfengChain03/transaction"
+	"XianfengChain03/utils"
 )
 
 const BLOCKS = "blocks"
@@ -19,33 +21,41 @@ type BlockChain struct {
 	IteratorBlockHash [32]byte //迭代到的区块哈希值
 }
 
-func NewBlockChain(db *bolt.DB) BlockChain {
+func NewBlockChain(db *bolt.DB) (BlockChain, error) {
 	//增加为lastblock赋值的逻辑
 	var lastBlock Block
+	var err error
 	db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(BLOCKS))
 		if bucket == nil {
-			bucket, _ = tx.CreateBucket([]byte(BLOCKS))
+			bucket, err = tx.CreateBucket([]byte(BLOCKS))
+			if err != nil {
+				return err
+			}
 		}
 		lastHash := bucket.Get([]byte(LASTHASH))
 		if len(lastHash) == 0 {
 			return nil
 		}
 		lastBlockBytes := bucket.Get(lastHash)
-		lastBlock, _ = Deserialize(lastBlockBytes)
+		lastBlock, err = Deserialize(lastBlockBytes)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
-	return BlockChain{
+	blockChain := BlockChain{
 		Engine:            db,
 		LastBlock:         lastBlock,
 		IteratorBlockHash: lastBlock.Hash,
 	}
+	return blockChain, err
 }
 
 /**
  * 创建一个区块链实例，该实例携带一个创世区块
  */
-func (chain *BlockChain) CreateGenesis(genesisData []byte) {
+func (chain *BlockChain) CreateGenesis(txs []transaction.Transaction) {
 	//先看chain.LastBlock是否为空
 	hashBig := new(big.Int)
 	hashBig.SetBytes(chain.LastBlock.Hash[:])
@@ -63,7 +73,7 @@ func (chain *BlockChain) CreateGenesis(genesisData []byte) {
 		if bucket != nil {
 			lastHash := bucket.Get([]byte(LASTHASH))
 			if len(lastHash) == 0 {
-				genesis := CreateGenesisBlock(genesisData)
+				genesis := CreateGenesisBlock(txs)
 				genSerBytes, _ := genesis.Serialize()
 				//存创世区块
 				bucket.Put(genesis.Hash[:], genSerBytes)
@@ -78,16 +88,144 @@ func (chain *BlockChain) CreateGenesis(genesisData []byte) {
 }
 
 /**
+ * 该方法用于创建一笔coinbase交易
+ */
+func (chain *BlockChain) CreateCoinbase(addr string) ([]byte, error) {
+	coinbase, err := transaction.NewCoinbaseTx(addr)
+	if err != nil {
+		return nil, err
+	}
+	chain.CreateGenesis([]transaction.Transaction{*coinbase})
+	return coinbase.TxHash[:], nil
+}
+
+/**
+ * 获取某个地址的余额
+ */
+func (chain *BlockChain) GetBalance(addr string) float64 {
+	_, totalbalance := chain.GetUTXOsWithBalance(addr, []transaction.Transaction{})
+	return totalbalance
+}
+
+/**
+ * 获取某个特定地址的余额和所能花费的utxo集合
+ */
+func (chain *BlockChain) GetUTXOsWithBalance(addr string, txs []transaction.Transaction) ([]transaction.UTXO, float64) {
+	//1、从文件中遍历区块，找出区块中已经存在交易中的可花费utxo
+	dbUtxos := chain.SearchUTXOs(addr)
+
+	//2、遍历内存中的txs切片, 如果当前已构建还未存储的交易已经花了前，要剔除掉
+	memSpends := make([]transaction.TxInput, 0)
+	memInComes := make([]transaction.UTXO, 0)
+	for _, tx := range txs {
+		//花的钱
+		for _, input := range tx.Inputs {
+			if addr == string(input.ScriptSig) {
+				memSpends = append(memSpends, input)
+			}
+		}
+		//收入的钱
+		for index, output := range tx.Outputs {
+			if addr == string(output.ScriptPub) {
+				utxo := transaction.UTXO{
+					TxId:     tx.TxHash,
+					Vout:     index,
+					TxOutput: output,
+				}
+				memInComes = append(memInComes, utxo)
+			}
+		}
+	}
+
+	//3、合并1和2, 将内存中已经花掉的utxo从dbUtxo删除掉，将内存中产生的收入加入到可花费收入中
+	utxos := make([]transaction.UTXO, 0)
+	var isSpend bool
+	for _, dbUtxo := range dbUtxos {
+		isSpend = false
+		for _, memUtxo := range memSpends {
+			if string(dbUtxo.TxId[:]) == string(memUtxo.TxId[:]) || dbUtxo.Vout == memUtxo.Vout || string(dbUtxo.ScriptPub) == string(memUtxo.ScriptSig) {
+				isSpend = true
+			}
+		}
+		if !isSpend {
+			utxos = append(utxos, dbUtxo)
+		}
+	}
+	//把内存中的产生的收入放入到可花的utxo中
+	utxos = append(utxos, memInComes...)
+
+	var totalBalance float64
+	for _, utxo := range utxos {
+		totalBalance += utxo.Value
+	}
+	return utxos, totalBalance
+}
+
+/**
+ * 发送交易的功能方法
+ */
+func (chain *BlockChain) SendTransaction(from string, to string, value string) (error) {
+	fromSlice, err := utils.JSONString2Slice(from)
+	toSlice, err := utils.JSONString2Slice(to)
+	valueSlice, err := utils.JSONFloat2Slice(value)
+	if err != nil {
+		return err
+	}
+
+	//判断参数的长度，筛选参数不匹配的情况
+	lenFrom := len(fromSlice)
+	lenTo := len(toSlice)
+	lenValue := len(valueSlice)
+	if !(lenFrom == lenTo && lenFrom == lenValue) {
+		return errors.New("发起交易的参数不匹配，请检查后重试")
+	}
+
+	//遍历参数的切片，创建交易
+	txs := make([]transaction.Transaction, 0)
+	for index := 0; index < lenFrom; index++ {
+		utxos, totalBalance := chain.GetUTXOsWithBalance(fromSlice[index], txs)
+		//fmt.Printf("转账发起人%s,当前余额：%f,接收者:%s,转账数额：%f\n", fromSlice[index], totalBalance, toSlice[index], valueSlice[index])
+		if totalBalance < valueSlice[index] {
+			return errors.New("抱歉，" + fromSlice[index] + "余额不足，请充值！")
+		}
+
+		var inputAmount float64 //总的花费的钱数
+
+		utxoNum := 0
+		for num, utxo := range utxos {
+			inputAmount += utxo.Value
+			if inputAmount >= valueSlice[index] {
+				//够花了
+				utxoNum = num
+				break
+			}
+		}
+		tx, err := transaction.NewTransaction(utxos[:utxoNum+1], fromSlice[index], toSlice[index], valueSlice[index])
+
+		if err != nil {
+			return errors.New("抱歉，创建交易失败，请检查后重试")
+		}
+		txs = append(txs, *tx)
+	}
+	//把构建好的交易存入到区块中
+	err = chain.AddNewBlock(txs)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+/**
  * 新增一个区块
  */
-func (chain *BlockChain) AddNewBlock(data []byte) error {
+func (chain *BlockChain) AddNewBlock(txs []transaction.Transaction) error {
 	//1、从db中找到最后一个区块数据
 	engine := chain.Engine
 	//2、获取到最新的区块
 	lastBlock := chain.LastBlock
 
 	//3、得到最后一个区块的各种属性，并利用这些属性生成新区块
-	newBlock := CreateBlock(lastBlock.Height, lastBlock.Hash, data)
+	newBlock := CreateBlock(lastBlock.Height, lastBlock.Hash, txs)
 	newBlockByte, err := newBlock.Serialize()
 	if err != nil {
 		return err
@@ -208,4 +346,63 @@ func (chain *BlockChain) Next() Block {
 		return nil
 	})
 	return currentBlock
+}
+
+/**
+ * 定义该方法，用于实现寻找与from有关的所有可花费的交易输出，即寻找UTXO
+ */
+func (chain BlockChain) SearchUTXOs(from string) ([]transaction.UTXO) {
+
+	//定义容器，存放from的所有的花费
+	spends := make([]transaction.TxInput, 0)
+
+	//定义容器，存放from的所有的收入
+	inComes := make([]transaction.UTXO, 0)
+
+	//使用迭代器进行区块的遍历
+	for chain.HasNext() { //遍历区块
+		block := chain.Next()
+		for _, tx := range block.Txs { //遍历区块的交易
+			//a、遍历交易输入
+			for _, input := range tx.Inputs {
+				if string(input.ScriptSig) != from {
+					continue
+				}
+				//该交易输入是from的，即from花钱了
+				spends = append(spends, input)
+			}
+			//b、遍历交易输出
+			for index, output := range tx.Outputs {
+				if string(output.ScriptPub) != from {
+					continue
+				}
+				//该交易输出是from的，即from有收入
+				input := transaction.UTXO{
+					TxId:     tx.TxHash,
+					Vout:     index,
+					TxOutput: output,
+				}
+				inComes = append(inComes, input)
+			}
+		}
+	}
+
+	utxos := make([]transaction.UTXO, 0)
+	//遍历spends和inComes,将已花费的记录剔除掉，剩下可花费的UTXO
+	var isInComeSpend bool
+	for _, income := range inComes {
+		//判断每一笔收入是否在之前的交易中已经被花过了
+		isInComeSpend = false
+		for _, spend := range spends { //5
+			if income.TxId == spend.TxId && income.Vout == spend.Vout {
+				isInComeSpend = true
+				break
+			}
+		}
+		//追加
+		if !isInComeSpend { //isInComeSpend如果如果为false，表示未被花,可加到utxos中
+			utxos = append(utxos, income)
+		}
+	}
+	return utxos
 }

@@ -3,6 +3,8 @@ package chain
 import (
 	"time"
 	"XianfengChain03/consensus"
+	"XianfengChain03/transaction"
+	"XianfengChain03/utils"
 	"encoding/gob"
 	"bytes"
 )
@@ -21,7 +23,9 @@ type Block struct {
 	Timestamp int64
 	//Difficulty int64
 	Nonce int64
-	Data  []byte //区块体
+	//Data  []byte //区块体
+	//区块体
+	Txs []transaction.Transaction
 }
 
 /**
@@ -41,10 +45,7 @@ func (block *Block) SetHash() {
  * 区块的序列化，序列化为[]byte数据类型
  */
 func (block *Block) Serialize() ([]byte, error) {
-	buff := new(bytes.Buffer)
-	encoder := gob.NewEncoder(buff)
-	err := encoder.Encode(&block)
-	return buff.Bytes(), err
+	return utils.GobEncode(block)
 }
 
 /**
@@ -60,13 +61,13 @@ func Deserialize(data []byte) (Block, error) {
 /**
  * 创建一个新的区块的函数
  */
-func CreateBlock(height int64, prevHash [32]byte, data []byte) Block {
+func CreateBlock(height int64, prevHash [32]byte, txs []transaction.Transaction) Block {
 	block := Block{}
 	block.Height = height + 1
 	block.PreHash = prevHash
 	block.Version = VERSION
 	block.Timestamp = time.Now().Unix()
-	block.Data = data
+	block.Txs = txs
 
 	//尝试给nonce值赋值
 	//共识机制: PoW、PoS、....
@@ -84,13 +85,13 @@ func CreateBlock(height int64, prevHash [32]byte, data []byte) Block {
 /**
  * 封装用于生成创世区块的函数, 该函数只生成创世区块
  */
-func CreateGenesisBlock(data []byte) Block {
+func CreateGenesisBlock(txs []transaction.Transaction) Block {
 	genesis := Block{}
 	genesis.Height = 0
 	genesis.PreHash = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	genesis.Version = VERSION
 	genesis.Timestamp = time.Now().Unix()
-	genesis.Data = data
+	genesis.Txs = txs
 
 	proof := consensus.NewProofWork(genesis)
 	hash, nonce := proof.SearchNonce()
@@ -122,6 +123,6 @@ func (block Block) GetPreHash() [32]byte {
 	return block.PreHash
 }
 
-func (block Block) GetData() []byte {
-	return block.Data
+func (block Block) GetTxs() []transaction.Transaction {
+	return block.Txs
 }

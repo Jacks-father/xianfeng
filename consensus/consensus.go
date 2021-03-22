@@ -2,13 +2,14 @@ package consensus
 
 import (
 	"math/big"
+	"XianfengChain03/transaction"
 )
 
 /**
  * 共识机制的接口标准,用于定义共识方案的接口
  */
 type Consensus interface {
-	SearchNonce() ([32]byte,int64)
+	SearchNonce() ([32]byte, int64)
 }
 
 /**
@@ -19,13 +20,13 @@ type BlockInterface interface {
 	GetVersion() int64
 	GetTimeStamp() int64
 	GetPreHash() [32]byte
-	GetData() []byte
+	GetTxs() []transaction.Transaction
 }
 
 func NewProofWork(block BlockInterface) Consensus {
 	init := big.NewInt(1)
-	init.Lsh(init, 255 - DIFFICULTY)
-	return ProofWork{block,init}
+	init.Lsh(init, 255-DIFFICULTY)
+	return ProofWork{block, init}
 }
 
 func NewProofStock() Consensus {
