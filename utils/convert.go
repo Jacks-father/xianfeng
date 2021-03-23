@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/json"
+	"crypto/sha256"
+	"golang.org/x/crypto/ripemd160"
 )
 
 /**
@@ -50,4 +52,19 @@ func JSONFloat2Slice(data string) ([]float64, error) {
 	var slice []float64
 	err := json.Unmarshal([]byte(data), &slice)
 	return slice, err
+}
+
+func Hash256(data []byte) ([]byte) {
+	sha256Hash := sha256.New()
+	sha256Hash.Write(data)
+	return sha256Hash.Sum(nil)
+}
+
+/**
+ * ripemd160计算
+ */
+func RipeMd160(data []byte) ([]byte) {
+	ripemdHash := ripemd160.New()
+	ripemdHash.Write(data)
+	return ripemdHash.Sum(nil)
 }

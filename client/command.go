@@ -8,5 +8,6 @@ const (
 	GETLASTBLOCK    = "getlastblock"
 	GETALLBLOCKS    = "getallblocks"
 	GETBLOCKCOUNT   = "getblockcount"
+	GETNEWADDRESS   = "getnewaddress" //生成一个新比特币地址
 	HELP            = "help"
 )

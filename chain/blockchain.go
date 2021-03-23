@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"XianfengChain03/transaction"
 	"XianfengChain03/utils"
+	"XianfengChain03/crypto_chain"
 )
 
 const BLOCKS = "blocks"
@@ -91,6 +92,12 @@ func (chain *BlockChain) CreateGenesis(txs []transaction.Transaction) {
  * 该方法用于创建一笔coinbase交易
  */
 func (chain *BlockChain) CreateCoinbase(addr string) ([]byte, error) {
+	//1、判断有效性
+	isValid := crypto_chain.IsAddressValid(addr)
+	if !isValid {
+		return nil, errors.New("地址不合法，请检查后重试！")
+	}
+	//2、创建coinbase交易
 	coinbase, err := transaction.NewCoinbaseTx(addr)
 	if err != nil {
 		return nil, err
@@ -178,6 +185,19 @@ func (chain *BlockChain) SendTransaction(from string, to string, value string) (
 	lenValue := len(valueSlice)
 	if !(lenFrom == lenTo && lenFrom == lenValue) {
 		return errors.New("发起交易的参数不匹配，请检查后重试")
+	}
+
+	//地址有效性的判断
+	for i := 0; i < len(fromSlice); i++ {
+		//交易发起人的地址是否合法，合法为true，不合法为false
+		isFromValid := crypto_chain.IsAddressValid(fromSlice[i])
+		//交易接收者的地址是否合法，合法为true，不合法为false
+		isToValid := crypto_chain.IsAddressValid(toSlice[i])
+		//from: 合法   合法
+		//to:   不合法  不合法
+		if !isFromValid || !isToValid {
+			return errors.New("交易的参数地址不合法，请检查后重试")
+		}
 	}
 
 	//遍历参数的切片，创建交易
@@ -405,4 +425,15 @@ func (chain BlockChain) SearchUTXOs(from string) ([]transaction.UTXO) {
 		}
 	}
 	return utxos
+}
+
+/**
+ * 生成一个新的地址，并返回
+ */
+func (chain *BlockChain) GetNewAddress() (string, error) {
+	add, err := crypto_chain.NewAddress()
+	if err != nil {
+		return "", err
+	}
+	return string(add), nil
 }

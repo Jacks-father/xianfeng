@@ -43,6 +43,8 @@ func (client *Client) Run() {
 		client.GetAllBlocks()
 	case GETBLOCKCOUNT:
 		client.GetBlockCount()
+	case GETNEWADDRESS:
+		client.GetNewAddress()
 	case HELP:
 		client.Help()
 	default:
@@ -56,6 +58,30 @@ func (client *Client) Run() {
 func (client *Client) Default() {
 	fmt.Println("go run main.go : Unknown subcommand.")
 	fmt.Println("Use go run main.go help for more information.")
+}
+
+/**
+ * 该方法用于生成一个新的地址
+ * 地址的生成规则参考比特币地址的生成步骤
+ */
+func (client *Client) GetNewAddress() {
+	getNewAddress := flag.NewFlagSet(GETNEWADDRESS, flag.ExitOnError)
+	err := getNewAddress.Parse(os.Args[2:])
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	//判断用户是否输了内容，getnewaddress命令不需要输入参数
+	if len(os.Args[2:]) > 0 {
+		fmt.Println("生成地址不需要参数，请重试！")
+		return
+	}
+	address, err := client.Chain.GetNewAddress()
+	if err != nil {
+		fmt.Println("抱歉，地址生成错误，请重试。错误信息如下：", err.Error())
+		return
+	}
+	fmt.Println("生成的地址是：", address)
 }
 
 func (client *Client) GetBlockCount() {
@@ -166,10 +192,11 @@ func (client *Client) GenerateGensis() {
 		fmt.Println("抱歉，已有coinbase交易，暂不能重复构建")
 		return
 	}
+
 	//2、如果创世区块不存在，才去调用creategenesis
 	coinbaseHash, err := client.Chain.CreateCoinbase(*address)
 	if err != nil {
-		fmt.Println("抱歉，coinbase交易构建失败, 请重试")
+		fmt.Println("抱歉，构建coinbase遇到错误，请重试。错误是：", err.Error())
 		return
 	}
 	fmt.Printf("恭喜，COINBASE交易创建成功，交易hash是：%x\n", coinbaseHash)
@@ -194,6 +221,7 @@ func (client *Client) Help() {
 	fmt.Println("    " + CREATECHAIN + "       the command is used to create a new blockchain.")
 	fmt.Println("    " + GENERATEGENESIS + "    generate a gensis block, use the gensis argument for the data.")
 	fmt.Println("    sendtransaction            create a new transaction, the argument is -from -to and -value.")
+	fmt.Println("    " + GETNEWADDRESS + "    the command is used to generate a new address by bitcoin algorithm")
 	fmt.Println()
 	fmt.Println("Use go run main.go help for more information about a command.")
 	fmt.Println()
