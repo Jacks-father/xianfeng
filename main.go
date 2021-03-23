@@ -7,6 +7,8 @@ import (
 )
 
 const DBFILE = "xianfeng03.db"
+//blocks:  hash为key blockBytes为value
+//keystore：addr为key KeyPairBytes为value
 
 /**
  * 项目的主入口

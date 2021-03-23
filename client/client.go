@@ -43,7 +43,7 @@ func (client *Client) Run() {
 		client.GetAllBlocks()
 	case GETBLOCKCOUNT:
 		client.GetBlockCount()
-	case GETNEWADDRESS:
+	case GETNEWADDRESS://生成新地址的功能
 		client.GetNewAddress()
 	case HELP:
 		client.Help()

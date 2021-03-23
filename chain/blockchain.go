@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"XianfengChain03/transaction"
 	"XianfengChain03/utils"
-	"XianfengChain03/crypto_chain"
+	"XianfengChain03/wallet"
 )
 
 const BLOCKS = "blocks"
@@ -18,8 +18,9 @@ const LASTHASH = "lastHash"
 type BlockChain struct {
 	//Blocks []Block
 	Engine            *bolt.DB
-	LastBlock         Block    //最新的区块
-	IteratorBlockHash [32]byte //迭代到的区块哈希值
+	LastBlock         Block         //最新的区块
+	IteratorBlockHash [32]byte      //迭代到的区块哈希值
+	Wallet            wallet.Wallet //钱包管理模块中的Wallet
 }
 
 func NewBlockChain(db *bolt.DB) (BlockChain, error) {
@@ -93,7 +94,7 @@ func (chain *BlockChain) CreateGenesis(txs []transaction.Transaction) {
  */
 func (chain *BlockChain) CreateCoinbase(addr string) ([]byte, error) {
 	//1、判断有效性
-	isValid := crypto_chain.IsAddressValid(addr)
+	isValid := wallet.IsAddressValid(addr)
 	if !isValid {
 		return nil, errors.New("地址不合法，请检查后重试！")
 	}
@@ -190,9 +191,9 @@ func (chain *BlockChain) SendTransaction(from string, to string, value string) (
 	//地址有效性的判断
 	for i := 0; i < len(fromSlice); i++ {
 		//交易发起人的地址是否合法，合法为true，不合法为false
-		isFromValid := crypto_chain.IsAddressValid(fromSlice[i])
+		isFromValid := wallet.IsAddressValid(fromSlice[i])
 		//交易接收者的地址是否合法，合法为true，不合法为false
-		isToValid := crypto_chain.IsAddressValid(toSlice[i])
+		isToValid := wallet.IsAddressValid(toSlice[i])
 		//from: 合法   合法
 		//to:   不合法  不合法
 		if !isFromValid || !isToValid {
@@ -431,9 +432,6 @@ func (chain BlockChain) SearchUTXOs(from string) ([]transaction.UTXO) {
  * 生成一个新的地址，并返回
  */
 func (chain *BlockChain) GetNewAddress() (string, error) {
-	add, err := crypto_chain.NewAddress()
-	if err != nil {
-		return "", err
-	}
-	return string(add), nil
+	chain.Wallet.Engine = chain.Engine
+	return chain.Wallet.CreateNewAddress()
 }

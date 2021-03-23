@@ -1,8 +1,7 @@
-package crypto_chain
+package wallet
 
 import (
 	"XianfengChain03/utils"
-	"crypto/elliptic"
 	"bytes"
 )
 
@@ -11,16 +10,7 @@ const VERSION = 0x00
 /**
  * 生成一个新地址
  */
-func NewAddress() (string, error) {
-	//1、私钥
-	curve := elliptic.P256()
-	pri, err := NewKey(curve)
-	if err != nil {
-		return "", err
-	}
-
-	//2、公钥
-	pub := GetPub(curve, pri)
+func NewAddress(pub []byte) (string, error) {
 
 	//3、sha256(pub）
 	hashPub := utils.Hash256(pub)
